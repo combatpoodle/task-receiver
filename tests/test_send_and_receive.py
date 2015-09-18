@@ -1,8 +1,18 @@
 from twisted.trial import unittest
+from twisted.internet import defer, task, reactor
 from task_receiver.message_helper import MessageHelper
 
+class ClientTimeoutError(Exception):
+    pass
+
 class test_send_and_receive(unittest.TestCase):
+  def setUp(self):
+    self.timeout = 1
+    self.clock = task.Clock()
+
   def test_failure(self):
+    d = defer.Deferred()
+
     token = "test_send_and_receive"
     configuration = {
       "incoming": {
@@ -25,7 +35,7 @@ class test_send_and_receive(unittest.TestCase):
         "exchange_type": "fanout",
         "exclusive": False,
         "queue": token + "qo",
-        "routing_key": "#"
+        "routing_key": "key"
       },
       "password": "guest",
       "username": "guest",
@@ -35,11 +45,18 @@ class test_send_and_receive(unittest.TestCase):
     }
 
     def sender_ready():
-      print "sender_ready"
+      helper.send("Arbitrary Message")
+
     def message_callback(thing):
-      print "message_callback", thing
+      self.assertEqual(thing, "Arbitrary Message")
+      helper.shutdown()
+      self.clock.advance(5)
+      d.callback("Completed")
 
     helper = MessageHelper(configuration, sender_ready, message_callback)
+    helper.callLater = self.clock.callLater
+
+    return d
 
 if __name__ == '__main__':
   unittest.main()

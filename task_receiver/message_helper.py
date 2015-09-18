@@ -1,10 +1,13 @@
+import json
 import os
+import time
 import txamqp
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ClientCreator
 from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
+from twisted.python import log
 from txamqp.client import TwistedDelegate
 from txamqp.content import Content
 from txamqp.protocol import AMQClient
@@ -14,6 +17,10 @@ class MessageHelper:
   _pending = []
   _channel_in = None
   _channel_out = None
+  _last_time_called = 0
+  _min_interval = 0.5
+  _later = None
+  _shutdown = False
 
   def __init__(self, configuration, sender_ready, message_received):
     """
@@ -32,18 +39,27 @@ class MessageHelper:
   def _connect(self):
     spec_path = os.path.dirname(__file__) + "/amqp0-8.stripped.rabbitmq.xml"
     spec = txamqp.spec.load(spec_path)
-    delegate = TwistedDelegate()
+    self.delegate = TwistedDelegate()
 
-    d = ClientCreator(reactor, AMQClient, delegate=delegate, vhost=self._configuration["vhost"], spec=spec).connectTCP(self._configuration["host"], self._configuration["port"])
+    d = ClientCreator(reactor, AMQClient, delegate=self.delegate, vhost=self._configuration["vhost"], spec=spec).connectTCP(self._configuration["host"], self._configuration["port"])
 
     d.addCallback(self._connected)
 
     def whoops(err):
       if reactor.running:
         log.err(err)
+        self.shutdown()
         reactor.stop()
 
     d.addErrback(whoops)
+
+  def shutdown(self):
+    self._shutdown = True
+
+    if self._later:
+      self._later.reset()
+
+    self.delegate.connection_close(None, "Shutting down")
 
   @inlineCallbacks
   def _connected(self, connection):
@@ -56,15 +72,15 @@ class MessageHelper:
 
   @inlineCallbacks
   def _set_up_sender(self):
-    self._channel_out = yield self._connection.channel(0)
+    self._channel_out = yield self._connection.channel(1)
     yield self._channel_out.channel_open()
 
-    yield self._channel_out.queue_declare(
-      queue=self._configuration["outgoing"]["queue"],
-      durable=self._configuration["outgoing"]["durable"],
-      exclusive=self._configuration["outgoing"]["exclusive"],
-      auto_delete=self._configuration["outgoing"]["auto_delete_queue"]
-    )
+    # yield self._channel_out.queue_declare(
+    #   queue=self._configuration["outgoing"]["queue"],
+    #   durable=self._configuration["outgoing"]["durable"],
+    #   exclusive=self._configuration["outgoing"]["exclusive"],
+    #   auto_delete=self._configuration["outgoing"]["auto_delete_queue"]
+    # )
 
     yield self._channel_out.exchange_declare(
       exchange=self._configuration["outgoing"]["exchange"],
@@ -73,16 +89,17 @@ class MessageHelper:
       auto_delete=self._configuration["outgoing"]["auto_delete_exchange"]
     )
 
-    yield self._channel_out.queue_bind(
-      queue=self._configuration["outgoing"]["queue"],
-      exchange=self._configuration["outgoing"]["exchange"],
-      routing_key=self._configuration["outgoing"]["routing_key"]
-    )
+    # yield self._channel_out.queue_bind(
+    #   queue=self._configuration["outgoing"]["queue"],
+    #   exchange=self._configuration["outgoing"]["exchange"],
+    #   routing_key=self._configuration["outgoing"]["routing_key"]
+    # )
 
     yield self._sender_ready(self._channel_out)
 
+  @inlineCallbacks
   def _set_up_receiver(self):
-    self._channel_in = yield self._connection.channel(1)
+    self._channel_in = yield self._connection.channel(2)
     yield self._channel_in.channel_open()
     yield self._channel_in.basic_qos(prefetch_count=self._configuration["incoming"]["prefetch_count"])
 
@@ -115,38 +132,41 @@ class MessageHelper:
     self._queue_in = yield self._connection.queue(self._configuration["incoming"]["routing_key"])
     self._receiveMessages()
 
-  def _ack(self, channel, raw_message):
-    channel.basic_ack(delivery_tag=raw_message.delivery_tag)
+  def _ack(self, raw_message):
+    self._channel_in.basic_ack(delivery_tag=raw_message.delivery_tag)
 
   @inlineCallbacks
   def _receiveMessages(self):
-    elapsed = time.time() - self.last_time_called
-    left_to_wait = self.min_interval - elapsed
+    elapsed = time.time() - self._last_time_called
+    left_to_wait = self._min_interval - elapsed
+
+    if self._shutdown:
+      return
 
     if left_to_wait > 0:
-      yield reactor.callLater(left_to_wait, self._receiveMessages)
+      self._later = self.callLater(left_to_wait, self._receiveMessages)
     else:
-      self.last_time_called = time.time()
+      self._last_time_called = time.time()
 
       message = yield self._queue_in.get()
       self._message_received(message)
 
-      elapsed = time.time() - self.last_time_called
-      left_to_wait = self.min_interval - elapsed
+      elapsed = time.time() - self._last_time_called
+      left_to_wait = self._min_interval - elapsed
 
       if left_to_wait < 0:
         left_to_wait = 0
 
-      yield reactor.callLater(left_to_wait*1.01, self._receiveMessages)
+      self._later = self.callLater(left_to_wait*1.01, self._receiveMessages)
 
   def _send_queued_messages(self):
-    if self._output_channel:
+    if self._channel_out:
       while self._pending:
-        message = self._pending.pop()
+        message = Content(json.dumps(self._pending.pop()))
 
-        self._output_channel.basic_publish(
-          exchange="deployment_queue_results",
-          routing_key="deployment_queue_results",
+        self._channel_out.basic_publish(
+          exchange=self._configuration["outgoing"]["exchange"],
+          routing_key=self._configuration["outgoing"]["routing_key"],
           content=message
         )
 
@@ -156,10 +176,16 @@ class MessageHelper:
 
   def _message_received(self, message):
     self._ack(message)
-    self.message_received(message.content.body)
+
+    body = json.loads(message.content.body)
+
+    self.message_received(body)
+
+  def callLater(self, *args, **kwargs):
+    return reactor.callLater(*args, **kwargs)
 
   def send(self, message):
-    self._pending.append( Content(json.dumps(message)) )
+    self._pending.append(message)
     self._send_queued_messages()
 
   def sender_ready(self):
