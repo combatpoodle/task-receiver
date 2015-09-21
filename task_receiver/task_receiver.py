@@ -3,16 +3,17 @@ import sys
 
 from twisted.internet import reactor
 from twisted.python import log
+from message_helper import MessageHelper
 
-class command_handler:
+class CommandRunner(object):
     def __init__(self, message_helper):
         pass
 
-class task_runner:
+class TaskRunner(object):
     def __init__(self):
         pass
 
-class task_manager:
+class TaskManager(object):
     def receive_from_queue(self, channel, raw_message):
         try:
             message = json.loads(raw_message.content.body)
@@ -30,47 +31,37 @@ class task_manager:
     def __init__(self, configuration):
         self.message_helper = message_helper(configuration, self.handler)
 
-def run_receiver(rabbit_hosts, rabbit_user, rabbit_password, deploy_path):
-    queue = "deployment_queue"
+class TaskReceiver(object):
+    def __init__(self, configuration):
+        self.configuration = configuration
 
-    exchange = "deployment_queue"
-    routing_key = "deployment_queue"
+        messageHelper = MessageHelper(configuration, self.sender_ready, self.receiver_ready, self.message_callback)
 
-    if type(rabbit_host) != type({}):
-        receiver = deployment_receiver(
-            '',
-            rabbit_host,
-            rabbit_user,
-            rabbit_password,
-            deploy_path,
-            queue,
-            exchange,
-            routing_key
-        )
-    else:
-        for (name, host) in rabbit_hosts.iteritems():
-            rabbit_hosts[name] = deployment_receiver(name, rabbit_host, rabbit_user, rabbit_password, deploy_path, queue, exchange, routing_key)
+    def sender_ready(self):
+        pass
 
-    reactor.run()
+    def receiver_ready(self):
+        pass
+
+    def message_callback(self, message):
+        print "Message callback with message", message
 
 if __name__ == "__main__":
-    if (len(sys.argv) < 2):
-        print "Missing required argument rabbit_host"
-        print "Use: python deployment_receiver host [guest [password]]"
+    if (len(sys.argv) != 2):
+        print "Missing required argument <configuration_path>"
+        print "Use: task_receiver <configuration_path>"
         sys.exit(1)
 
-    rabbit_host = sys.argv[1]
-    rabbit_user = "guest"
-    rabbit_password = "guest"
-    deploy_path = "/var/www/public/"
+    if (not os.path.isfile(sys.argv[1])):
+        print "Configuration file does not exist"
+        sys.exit(1)
 
-    if len(sys.argv) > 2:
-        rabbit_user = sys.argv[2]
+    if (not os.path.isabs(sys.argv[1])):
+        print "Please use an absolute path"
+        sys.exit(1)
 
-    if len(sys.argv) > 3:
-        rabbit_passwrd = sys.argv[2]
+    configuration = json.loads(sys.argv[1])
 
-    if len(sys.argv) > 4:
-        deploy_path = sys.argv[4]
+    receiver(configuration)
 
-    run_receiver(rabbit_host, "guest", "guest", deploy_path)
+    reactor.run()

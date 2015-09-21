@@ -11,7 +11,7 @@ from txamqp.client import TwistedDelegate
 from txamqp.content import Content
 from txamqp.protocol import AMQClient
 
-class MessageHelper:
+class MessageHelper(object):
   _output_channel = None
   _pending = []
   _channel_in = None
@@ -75,25 +75,12 @@ class MessageHelper:
     self._channel_out = yield self._connection.channel(1)
     yield self._channel_out.channel_open()
 
-    # yield self._channel_out.queue_declare(
-    #   queue=self._configuration["outgoing"]["queue"],
-    #   durable=self._configuration["outgoing"]["durable"],
-    #   exclusive=self._configuration["outgoing"]["exclusive"],
-    #   auto_delete=self._configuration["outgoing"]["auto_delete_queue"]
-    # )
-
     yield self._channel_out.exchange_declare(
       exchange=self._configuration["outgoing"]["exchange"],
       type=self._configuration["outgoing"]["exchange_type"],
       durable=self._configuration["outgoing"]["durable"],
-      auto_delete=self._configuration["outgoing"]["auto_delete_exchange"]
+      auto_delete=False
     )
-
-    # yield self._channel_out.queue_bind(
-    #   queue=self._configuration["outgoing"]["queue"],
-    #   exchange=self._configuration["outgoing"]["exchange"],
-    #   routing_key=self._configuration["outgoing"]["routing_key"]
-    # )
 
     yield self._sender_ready(self._channel_out)
 
@@ -103,25 +90,19 @@ class MessageHelper:
     yield self._channel_in.channel_open()
     yield self._channel_in.basic_qos(prefetch_count=self._configuration["incoming"]["prefetch_count"])
 
-    print "Declaring queue"
-
     yield self._channel_in.queue_declare(
       queue=self._configuration["incoming"]["queue"],
       durable=self._configuration["incoming"]["durable"],
       exclusive=self._configuration["incoming"]["exclusive"],
-      auto_delete=self._configuration["incoming"]["auto_delete_queue"]
+      auto_delete=False
     )
-
-    print "Declaring exchange"
 
     yield self._channel_in.exchange_declare(
       exchange=self._configuration["incoming"]["exchange"],
       type=self._configuration["incoming"]["exchange_type"],
       durable=self._configuration["incoming"]["durable"],
-      auto_delete=self._configuration["incoming"]["auto_delete_exchange"]
+      auto_delete=False
     )
-
-    print "Binding queue"
 
     yield self._channel_in.queue_bind(
       queue=self._configuration["incoming"]["queue"],
@@ -129,11 +110,9 @@ class MessageHelper:
       routing_key=self._configuration["incoming"]["routing_key"]
     )
 
-    print "Setting up consume"
-
     yield self._channel_in.basic_consume(
       queue=self._configuration["incoming"]["queue"],
-      no_ack=self._configuration["incoming"]["no_ack"],
+      no_ack=False,
       consumer_tag=self._configuration["incoming"]["routing_key"]
     )
 

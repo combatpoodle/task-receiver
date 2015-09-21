@@ -1,3 +1,6 @@
+import string
+import random
+
 from twisted.trial import unittest
 from twisted.internet import defer, task, reactor
 from task_receiver.message_helper import MessageHelper
@@ -5,7 +8,7 @@ from task_receiver.message_helper import MessageHelper
 class ClientTimeoutError(Exception):
         pass
 
-class test_send_and_receive(unittest.TestCase):
+class TestMessageHelper(unittest.TestCase):
     def setUp(self):
         self.timeout = 10
         self.clock = task.Clock()
@@ -13,7 +16,8 @@ class test_send_and_receive(unittest.TestCase):
     def test_send_and_receive(self):
         d = defer.Deferred()
 
-        token = "test_send_and_receive"
+        token = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(7))
+
         configuration = {
             "incoming": {
                 "auto_delete_exchange": False,
