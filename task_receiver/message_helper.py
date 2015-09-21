@@ -22,7 +22,7 @@ class MessageHelper:
   _later = None
   _shutdown = False
 
-  def __init__(self, configuration, sender_ready, message_received):
+  def __init__(self, configuration, sender_ready, receiver_ready, message_received):
     """
       Kicks off configuration and connections.
       sender_ready will be called when the sender is ready, and message_received will
@@ -32,6 +32,7 @@ class MessageHelper:
     self._configuration = configuration
 
     self.sender_ready = sender_ready
+    self.receiver_ready = receiver_ready
     self.message_received = message_received
 
     self._connect()
@@ -103,12 +104,16 @@ class MessageHelper:
     yield self._channel_in.channel_open()
     yield self._channel_in.basic_qos(prefetch_count=self._configuration["incoming"]["prefetch_count"])
 
+    print "Declaring queue"
+
     yield self._channel_in.queue_declare(
       queue=self._configuration["incoming"]["queue"],
       durable=self._configuration["incoming"]["durable"],
       exclusive=self._configuration["incoming"]["exclusive"],
       auto_delete=self._configuration["incoming"]["auto_delete_queue"]
     )
+
+    print "Declaring exchange"
 
     yield self._channel_in.exchange_declare(
       exchange=self._configuration["incoming"]["exchange"],
@@ -117,11 +122,15 @@ class MessageHelper:
       auto_delete=self._configuration["incoming"]["auto_delete_exchange"]
     )
 
+    print "Binding queue"
+
     yield self._channel_in.queue_bind(
       queue=self._configuration["incoming"]["queue"],
       exchange=self._configuration["incoming"]["exchange"],
       routing_key=self._configuration["incoming"]["routing_key"]
     )
+
+    print "Setting up consume"
 
     yield self._channel_in.basic_consume(
       queue=self._configuration["incoming"]["queue"],
@@ -131,6 +140,7 @@ class MessageHelper:
 
     self._queue_in = yield self._connection.queue(self._configuration["incoming"]["routing_key"])
     self._receiveMessages()
+    self.receiver_ready()
 
   def _ack(self, raw_message):
     self._channel_in.basic_ack(delivery_tag=raw_message.delivery_tag)
