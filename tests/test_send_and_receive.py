@@ -10,7 +10,7 @@ class test_send_and_receive(unittest.TestCase):
     self.timeout = 1
     self.clock = task.Clock()
 
-  def test_failure(self):
+  def test_send_and_receive(self):
     d = defer.Deferred()
 
     token = "test_send_and_receive"
