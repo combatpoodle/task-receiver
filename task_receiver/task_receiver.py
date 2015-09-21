@@ -26,8 +26,7 @@ class task_manager:
         print e
         return
 
-      self.ack(channel,
-      raw_message)
+      self.ack(channel, raw_message)
 
       self.send()
 
@@ -35,8 +34,7 @@ class task_manager:
       # self.send_when_ready()
 
   def __init__(self, configuration):
-    self.message_helper = message_helper(configuration,
-      self.handler)
+    self.message_helper = message_helper(configuration, self.handler)
 
 def run_receiver(rabbit_hosts, rabbit_user, rabbit_password, deploy_path):
   queue = "deployment_queue"
@@ -81,7 +79,4 @@ if __name__ == "__main__":
   if len(sys.argv) > 4:
     deploy_path = sys.argv[4]
 
-  run_receiver(rabbit_host,
-      "guest",
-      "guest",
-      deploy_path)
+  run_receiver(rabbit_host, "guest", "guest", deploy_path)
