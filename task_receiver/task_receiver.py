@@ -2,12 +2,7 @@ import json
 import sys
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, DeferredList, inlineCallbacks
-from twisted.names import client, dns, error
 from twisted.python import log
-from txamqp.client import TwistedDelegate
-from txamqp.content import Content
-from txamqp.protocol import AMQClient
 
 class command_handler:
     def __init__(self, message_helper):
@@ -19,19 +14,18 @@ class task_runner:
 
 class task_manager:
     def receive_from_queue(self, channel, raw_message):
-        with settings(warn_only=True):
-            try:
-                message = json.loads(raw_message.content.body)
-            except ValueError, e:
-                print e
-                return
+        try:
+            message = json.loads(raw_message.content.body)
+        except ValueError, e:
+            print e
+            return
 
-            self.ack(channel, raw_message)
+        self.ack(channel, raw_message)
 
-            self.send()
+        self.send()
 
-            # self.results.append(content)
-            # self.send_when_ready()
+        # self.results.append(content)
+        # self.send_when_ready()
 
     def __init__(self, configuration):
         self.message_helper = message_helper(configuration, self.handler)

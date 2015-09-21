@@ -5,7 +5,6 @@ import txamqp
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ClientCreator
-from twisted.internet.protocol import Protocol
 from twisted.internet import reactor
 from twisted.python import log
 from txamqp.client import TwistedDelegate
