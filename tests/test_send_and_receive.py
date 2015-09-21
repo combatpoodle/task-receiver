@@ -7,7 +7,7 @@ class ClientTimeoutError(Exception):
 
 class test_send_and_receive(unittest.TestCase):
   def setUp(self):
-    self.timeout = 1
+    self.timeout = 10
     self.clock = task.Clock()
 
   def test_send_and_receive(self):
