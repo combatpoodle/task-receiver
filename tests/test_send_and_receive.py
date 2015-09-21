@@ -45,16 +45,23 @@ class test_send_and_receive(unittest.TestCase):
     }
 
     def sender_ready():
+      print "Sender ready"
       helper.send("Arbitrary Message")
+      print "Sent"
 
     def message_callback(thing):
+      print "Message callback"
       self.assertEqual(thing, "Arbitrary Message")
+      print "Shutting down"
       helper.shutdown()
       self.clock.advance(5)
+      print "Done, calling back..."
       d.callback("Completed")
 
+
+    print "Starting helper"
+    MessageHelper.callLater = self.clock.callLater
     helper = MessageHelper(configuration, sender_ready, message_callback)
-    helper.callLater = self.clock.callLater
 
     return d
 
