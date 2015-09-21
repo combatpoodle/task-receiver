@@ -1,0 +1,5 @@
+include *.md
+include tox.ini
+recursive-include task_receiver *.xml
+recursive-include tests *.py
+include .editorconfig
