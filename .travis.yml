@@ -10,12 +10,10 @@ services:
 # addons:
 #  apt:
 #    sources:
-#    - mongodb-3.0-precise
 #    - pypy
 #addons:
 #  apt:
 #    packages:
-#    - mongodb-org-server
 #    - pypy
 
 env:
@@ -42,19 +40,18 @@ matrix:
 
 before_install:
   # - "sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10"
-  # - "echo 'deb http://repo.mongodb.org/apt/ubuntu '$(lsb_release -sc)'/mongodb-org/3.0 multiverse' | sudo tee /etc/apt/sources.list.d/mongodb-org-3.0.list"
-  # - "sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 68854915"
-  # - "echo 'deb http://ppa.launchpad.net/pypy/ppa/ubuntu '$(lsb_release -sc)' main' | sudo tee /etc/apt/sources.list.d/pypy.list"
-  # - "sudo apt-get update"
-  - "sudo apt-get install mongodb-org-server pypy"
-  # - "mongod --version"
+  # I think this is the pypy one below...
+  - "sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 68854915"
+  - "echo 'deb http://ppa.launchpad.net/pypy/ppa/ubuntu '$(lsb_release -sc)' main' | sudo tee /etc/apt/sources.list.d/pypy.list"
+  - "sudo apt-get update"
+  - "sudo apt-get install pypy"
   - "pypy --version"
 
 install:
   - pip install tox coveralls
 
-# before_script:
-#   - "until nc -z localhost 27017; do echo Waiting for MongoDB; sleep 1; done"
+before_script:
+  - "until nc -z localhost 5672; do echo Waiting for Rabbit; sleep 1; done"
 
 script:
   - tox -e $TOX_ENV
