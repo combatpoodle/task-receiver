@@ -35,7 +35,19 @@ class TestTaskReceiver(unittest.TestCase):
 
         configuration = {
             "command_directory": "/tmp/asldkfj/",
-            "server_name": "mqm"
+
+            "environment": "staging",
+            "roles": [ "mqm", "linux" ]
+        }
+
+        command = {
+            "name": "stop web UI",
+            "command": "stop-web-ui",
+            "only": [
+                "web"
+            ],
+            "environment": "staging",
+            "nonce": "12345"
         }
 
         receiver = task_receiver.task_receiver.TaskReceiver(configuration)
